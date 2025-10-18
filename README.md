@@ -193,3 +193,86 @@ You can then do \> /restore 0 to revert all file changes (and even the conversat
 
 In essence, **/restore** lets you use Gemini CLI with confidence. You can let the AI attempt bold changes, knowing you have an *“OH NO” button* to rewind if needed.
 
+## Tip 6: Read Google Docs, Sheets, and More. With a Workspace MCP server configured, you can paste a Docs/Sheets link and have the MCP fetch it, subject to permissions
+
+**Quick use-case:** Imagine you have a Google Doc or Sheet with some specs or data that you want the AI to use. Instead of copy-pasting the content, you can provide the link, and with a configured Workspace MCP server Gemini CLI can fetch and read it.
+
+For example:
+
+\> Summarize the requirements from this design doc: [https://docs.google.com/document/d/\\](https://docs.google.com/document/d/\\)\<id\>
+
+Gemini can pull in the content of that Doc and incorporate it into its response. Similarly, it can read Google Sheets or Drive files by link, and even perform internal searches on Google’s knowledge base (Moma) if you have access.
+
+**How this works:** These capabilities are typically enabled via **MCP integrations**. Google’s Gemini CLI team has built (or is working on) connectors for Google Workspace. One approach is running a small MCP server that uses Google’s APIs (Docs API, Sheets API, etc.) to retrieve document content when given a URL or \[ID[\[41\]](https://github.com/google-gemini/gemini-cli/issues/7175#:~:text=Create%20a%20Google%20Docs%20MCP,to%20provide%20seamless%20document%20access)\]([https://github.com/google-gemini/gemini-cli/issues/7175\#:\~:text=%2A%20%60read\_google\_doc%28doc\_id\_or\_url%29%60%20,List%20accessible%20documents](https://github.com/google-gemini/gemini-cli/issues/7175#:~:text=%2A%20%60read_google_doc%28doc_id_or_url%29%60%20,List%20accessible%20documents)). When configured, you might have slash commands or tools like /read\_google\_doc or simply an auto-detection that sees a Google Docs link and invokes the appropriate tool to fetch it.
+
+For example, in an Agent Factory podcast demo, the team used a **Google Docs MCP** to save a summary directly to a [doc](https://cloud.google.com/blog/topics/developers-practitioners/agent-factory-recap-deep-dive-into-gemini-cli-with-taylor-mullen#:~:text=%2A%20Utilize%20the%20google,summary%20directly%20to%20Google%20Docs) – which implies they could also read the doc’s content in the first place. In practice, you might do something like:
+
+\> @[https://docs.google.com/document/d/XYZ12345](https://docs.google.com/document/d/XYZ12345)
+
+Including a URL with @ (the context reference syntax) signals Gemini CLI to fetch that resource. With a Google Doc integration in place, the content of that document would be pulled in as if it were a local file. From there, the AI can summarize it, answer questions about it, or otherwise use it in the conversation.
+
+Similarly, if you paste a Google Drive **file link**, a properly configured Drive tool could download or open that file (assuming permissions and API access are set up). **Google Sheets** could be made available via an MCP that runs queries or reads cell ranges, enabling you to ask things like “What’s the sum of the budget column in this Sheet \[link\]?” and have the AI calculate it.
+
+**Setting it up:** As of this writing, the Google Workspace integrations may require some tinkering (obtaining API credentials, running an MCP server such as the one described by [Kanshi Tanaike](https://medium.com/google-cloud/managing-google-docs-sheets-and-slides-by-natural-language-with-gemini-cli-and-mcp-62f4dfbef2d5#:~:text=To%20implement%20this%20approach%2C%20I,methods%20for%20each%20respective%20API), etc.). Keep an eye on the official Gemini CLI repository and community forums for ready-to-use extensions – for example, an official Google Docs MCP might become available as a plugin/extension. If you’re eager, you can write one following guides on how to use Google APIs within an MCP [server](https://github.com/google-gemini/gemini-cli/issues/7175#:~:text=). It typically involves handling OAuth (which Gemini CLI supports for MCP servers) and then exposing tools like read\_google\_doc.
+
+**Usage tip:** When you have these tools, using them can be as simple as providing the link in your prompt (the AI might automatically invoke the tool to fetch it) or using a slash command like /doc open \<URL\>. Check /tools to see what commands are available – Gemini CLI lists all tools and custom commands [there](https://dev.to/therealmrmumba/7-insane-gemini-cli-tips-that-will-make-you-a-superhuman-developer-2d7h#:~:text=Gemini%20CLI%20includes%20dozens%20of,can%20supercharge%20your%20dev%20process).
+
+In summary, **Gemini CLI can reach out beyond your local filesystem**. Whether it’s Google Docs, Sheets, Drive, or other external content, you can pull data in by reference. This pro tip saves you from manual copy-paste and keeps the context flow natural – just refer to the document or dataset you need, and let the AI grab what’s needed. It makes Gemini CLI a true **knowledge assistant** for all the information you have access to, not just the files on your disk.
+
+*(Note: Accessing private documents of course requires the CLI to have the appropriate permissions. Always ensure any integration respects security and privacy. In corporate settings, setting up such integrations might involve additional auth steps.)*
+
+## Tip 7: Reference Files and Images with @ for Explicit Context
+
+**Quick use-case:** Instead of describing a file’s content or an image verbally, just point Gemini CLI directly to it. Using the @ syntax, you can attach files, directories, or images into your prompt. This guarantees the AI sees exactly what’s in those files as [context](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=Reference%20files%20or%20directories%20in,PDFs%2C%20audio%2C%20and%20video%20files). For example:
+
+\> Explain this code to me: @./src/main.js
+
+This will include the contents of *src/main.js* in the prompt (up to Gemini’s context size limits), so the AI can read it and explain [it](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=Include%20a%20single%20file%3A).
+
+This @ *file reference* is one of Gemini CLI’s most powerful features for developers. It eliminates ambiguity – you’re not asking the model to rely on memory or guesswork about the file, you’re literally handing it the file to read. You can use this for source code, text documents, logs, etc. Similarly, you can reference **entire directories**:
+
+\> Refactor the code in @./utils/ to use async/await.
+
+By appending a path that ends in a slash, Gemini CLI will recursively include files from that [directory](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=Include%20a%20whole%20directory%20) (within reason, respecting ignore files and size limits). This is great for multi-file refactors or analyses, as the AI can consider all relevant modules together.
+
+Even more impressively, you can reference **binary files like images** in prompts. Gemini CLI (using the Gemini model’s multimodal capabilities) can understand images. For example:
+
+\> Describe what you see in this screenshot: @./design/mockup.png
+
+The image will be fed into the model, and the AI might respond with something like “This is a login page with a blue sign-in button and a header image,” [etc](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=Include%20an%20image%3A).. You can imagine the uses: reviewing UI mockups, organizing photos (as we’ll see in a later tip), or extracting text from images (Gemini can do OCR as well).
+
+A few notes on using @ references effectively:
+
+* **File limits:** Gemini 2.5 Pro has a huge context window (up to 1 million [tokens](https://blog.google/technology/developers/introducing-gemini-cli-open-source-ai-agent/#:~:text=To%20use%20Gemini%20CLI%20free,per%20day%20at%20no%20charge)), so you can include quite large files or many files. However, extremely large files might be truncated. If a file is enormous (say, hundreds of thousands of lines), consider summarizing it or breaking it into parts. Gemini CLI will warn you if a reference is too large or if it skipped something due to size.
+
+* **Automatic ignoring:** By default, Gemini CLI respects your .gitignore and .geminiignore files when pulling in directory [context](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=Reference%20files%20or%20directories%20in,PDFs%2C%20audio%2C%20and%20video%20files). So if you @./ a project root, it will not dump huge ignored folders (like node\_modules) into the prompt. You can customize ignore patterns with .geminiignore similarly to how .gitignore works.
+
+* **Explicit vs implicit context:** Taylor Mullen (the creator of Gemini CLI) emphasizes using @ for *explicit context injection* rather than relying on the model’s memory or summarizing things yourself. It’s more precise and ensures the AI isn’t hallucinating content. Whenever possible, point the AI to the source of truth (code, config files, documentation) with @ references. This practice can significantly improve accuracy.
+
+* **Chaining references:** You can include multiple files in one prompt, like: \> Compare @./foo.py and @./bar.py and tell me differences. The CLI will include both files. Just be mindful of token limits; multiple large files might consume a lot of the context window.
+
+Using @ is essentially how you **feed knowledge into Gemini CLI on the fly**. It turns the CLI into a multi-modal reader that can handle text and images. As a pro user, get into the habit of leveraging this – it’s often faster and more reliable than asking the AI something like “Open the file X and do Y” (which it may or may not do on its own). Instead, you explicitly give it X to work with.
+
+## Tip 8: On-the-Fly Tool Creation (Have Gemini Build Helpers)
+
+**Quick use-case:** If a task at hand would benefit from a small script or utility, you can ask Gemini CLI to create that tool for you – right within your session. For example, you might say, “Write a Python script to parse all JSON files in this folder and extract the error fields.” Gemini can generate the script, which you can then execute via the CLI. In essence, you can **dynamically extend the toolset** as you go.
+
+Gemini CLI is not limited to its pre-existing tools; it can use its coding abilities to fabricate new ones when needed. This often happens implicitly: if you ask for something complex, the AI might propose writing a temporary file (with code) and then running it. As a user, you can also guide this process explicitly:
+
+* **Creating scripts:** You can prompt Gemini to create a script or program in the language of your choice. It will likely use the write\_file tool to create the file. For instance:
+
+\> Generate a Node.js script that reads all '.log' files in the current directory and reports the number of lines in each.
+
+Gemini CLI will draft the code, and with your approval, write it to a file (e.g. script.js). You can then run it by either using the \! shell command (e.g. \!node script.js) or by asking Gemini CLI to execute it (the AI might automatically use run\_shell\_command to execute the script it just wrote, if it deems it part of the plan).
+
+* **Temporary tools via MCP:** In advanced scenarios, the AI might even suggest launching an MCP server for some specialized tasks. For example, if your prompt involves some heavy text processing that might be better done in Python, Gemini could generate a simple MCP server in Python and run it. While this is more rare, it demonstrates that the AI can set up a new “agent” on the fly. (One of the slides from the Gemini CLI team humorously referred to “MCP servers for everything, even one called LROwn” – suggesting you can have Gemini run an instance of itself or another model, though that’s more of a trick than a practical use\!).
+
+The key benefit here is **automation**. Instead of you manually stopping to write a helper script, you can let the AI do it as part of the flow. It’s like having an assistant who can create tools on-demand. This is especially useful for data transformation tasks, batch operations, or one-off computations that the built-in tools don’t directly provide.
+
+**Nuances and safety:** When Gemini CLI writes code for a new tool, you should still review it before running. The /diff view (Gemini will show you the file diff before you approve writing it) is your chance to inspect the [code](https://medium.com/@ferreradaniel/gemini-cli-free-ai-tool-upgrade-5-new-features-you-need-right-now-04cfefac5e93#:~:text=Nobody%20enjoys%20switching%20between%20windows,track%20changes%20line%20by%20line). Ensure it does what you expect and nothing malicious or destructive (the AI shouldn’t produce something harmful unless your prompt explicitly asks, but just like any code from an AI, double-check logic, especially for scripts that delete or modify lots of data).
+
+**Example scenario:** Let’s say you have a CSV file and you want to filter it in a complex way. You ask Gemini CLI to do it, and it might say: “I will write a Python script to parse the CSV and apply the filter.” It then creates filter\_data.py. After you approve and it runs, you get your result, and you might never need that script again. This ephemeral creation of tools is a pro move – it shows the AI effectively extending its capabilities autonomously.
+
+**Pro Tip:** If you find the script useful beyond the immediate context, you can promote it into a permanent tool or command. For instance, if the AI generated a great log-processing script, you might later turn it into a custom slash command (Tip \#2) for easy reuse. The combination of Gemini’s generative power and the extension hooks means your toolkit can continuously evolve as you use the CLI.
+
+In summary, **don’t restrict Gemini to what it comes with**. Treat it as a junior developer who can whip up new programs or even mini-servers to help solve the problem. This approach embodies the agentic philosophy of Gemini CLI – it will figure out what tools it needs, even if it has to code them on the spot.
