@@ -591,3 +591,66 @@ To make this practical: when you @image.png, ensure the image isn’t too huge (
 
 In summary, **don’t forget the “I” in GUI when using Gemini CLI** – it can handle the visual just as well as the textual in many cases. This opens up workflows like visual debugging, design help, data extraction from screenshots, etc., all under the same tool. It’s a differentiator that some other CLI tools may not have yet. And as models improve, this multimodal support will only get more powerful, so it’s a future-proof skill to exploit.
 
+## Tip 19: Customize the $PATH (and Tool Availability) for Stability
+
+**Quick use-case:** If you ever find Gemini CLI getting confused or invoking the wrong programs, consider running it with a tailored $PATH. By limiting or ordering the available executables, you can prevent the AI from, say, calling a similarly named script that you didn’t intend. Essentially, you sandbox its tool access to known-good tools.
+
+For most users, this isn’t an issue, but for pro users with lots of custom scripts or multiple versions of tools, it can be helpful. One reason mentioned by the developers is avoiding infinite loops or weird [behavior](https://github.com/google-gemini/gemini-cli/discussions/7890#:~:text=We%20built%20a%20CLI%20tool,trash%20folder%20for%20manual%20deletion). For example, if gemini itself is in PATH, an AI gone awry might recursively call gemini from within Gemini (a strange scenario, but theoretically possible). Or perhaps you have a command named test that conflicts with something – the AI might call the wrong one.
+
+**How to set PATH for Gemini:** Easiest is inline on launch:
+
+PATH=/usr/bin:/usr/local/bin gemini
+
+This runs Gemini CLI with a restricted PATH of just those directories. You might exclude directories where experimental or dangerous scripts lie. Alternatively, create a small shell script wrapper that purges or adjusts PATH then exec’s gemini.
+
+Another approach is using environment or config to explicitly disable certain tools. For instance, if you absolutely never want the AI to use rm or some destructive tool, you could technically create an alias or dummy rm in a safe PATH that does nothing (though this could interfere with normal operations, so maybe not that one). A better method is the **exclude list** in settings. In an extension or settings.json, you can exclude tool [names](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=). E.g.,
+
+"excludeTools": \["run\_shell\_command"\]
+
+This extreme example would stop *all* shell commands from running (making Gemini effectively read-only). More granular, there was mention of skipping confirmation for some; similarly you might configure something like:
+
+"tools": {  
+"exclude": \["apt-get", "shutdown"\]  
+}
+
+*(This syntax is illustrative; consult docs for exact usage.)*
+
+The principle is, by controlling the environment, you reduce risk of the AI doing something dumb with a tool it shouldn’t. It’s akin to child-proofing the house.
+
+**Prevent infinite loops:** One user scenario was a loop where Gemini kept reading its own output or re-reading files [repeatedly](https://support.google.com/gemini/thread/337650803/infinite-loops-with-tool-code-in-answers?hl=en#:~:text=Community%20support,screen%20with%20weird%20scrolling). Custom PATH can’t directly fix logic loops, but one cause could be if the AI calls a command that triggers itself. Ensuring it can’t accidentally spawn another AI instance (like calling bard or gemini command, if it thought to do so) is good. Removing those from PATH (or renaming them for that session) helps.
+
+**Isolation via sandbox:** Another alternative to messing with PATH is using \--sandbox mode (which uses Docker or Podman to run tools in an isolated [environment](https://www.philschmid.de/gemini-cli-cheatsheet#:~:text=echo%20,gemini)). In that case, the AI’s actions are contained and have only the tools that sandbox image provides. You could supply a Docker image with a curated set of tools. This is heavy-handed but very safe.
+
+**Custom PATH for specific tasks:** You might have different PATH setups for different projects. For example, in one project you want it to use a specific version of Node or a local toolchain. Launching gemini with the PATH that points to those versions will ensure the AI uses the right one. Essentially, treat Gemini CLI like any user – it uses whatever environment you give it. So if you need it to pick gcc-10 vs gcc-12, adjust PATH or CC env var accordingly.
+
+**In summary:** *Guard rails.* As a power user, you have the ability to fine-tune the operating conditions of the AI. If you ever find a pattern of undesirable behavior tied to tool usage, tweaking PATH is a quick remedy. For everyday use, you likely won’t need this, but it’s a pro tip to keep in mind if you integrate Gemini CLI into automation or CI: give it a controlled environment. That way, you know exactly what it can and cannot do, which increases reliability.
+
+---
+
+## Tip 20: Track and reduce token spend with token caching and stats
+
+If you run long chats or repeatedly attach the same big files, you can cut cost and latency by turning on token caching and monitoring usage. With an API key or Vertex AI auth, Gemini CLI automatically reuses previously sent system instructions and context, so follow‑up requests are cheaper. You can see the savings live in the CLI.
+
+**How to use it**
+
+Use an auth mode that enables caching. Token caching is available when you authenticate with a Gemini API key or Vertex AI. It is not available with OAuth login today. [Google Gemini](https://google-gemini.github.io/gemini-cli/docs/cli/token-caching.html)
+
+Inspect your usage and cache hits. Run the stats command during a session. It shows total tokens and a cached field when caching is active.
+
+/stats
+
+The command’s description and cached reporting behavior are documented in the commands reference and FAQ. [Google Gemini+1](https://google-gemini.github.io/gemini-cli/docs/cli/commands.html?utm_source=chatgpt.com)
+
+Capture metrics in scripts. When running headless, output JSON and parse the stats block, which includes tokens.cached for each model:
+
+gemini \-p "Summarize README" \--output-format json
+
+The headless guide documents the JSON schema with cached token counts. [Google Gemini](https://google-gemini.github.io/gemini-cli/docs/cli/headless.html)
+
+Save a session summary to file: For CI or budget tracking, write a JSON session summary to disk.
+
+gemini \-p "Analyze logs" \--session-summary usage.json
+
+This flag is listed in the changelog. [Google Gemini](https://google-gemini.github.io/gemini-cli/docs/changelogs/)
+
+With API key or Vertex auth, the CLI automatically reuses previously sent context so later turns send fewer tokens. Keeping GEMINI.md and large file references stable across turns increases cache hits; you’ll see that reflected in stats as cached tokens.
